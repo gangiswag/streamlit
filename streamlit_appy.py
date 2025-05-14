@@ -313,7 +313,7 @@ if st.session_state['q1'] and st.session_state['q2']:
         # Prepare JSON data for upload
         json_string = json.dumps(entry, indent=4)
         json_bytes = json_string.encode('utf-8')
-        buf = io.StringIO(json_bytes)
+        buf = io.BytesIO(json_bytes)
         buf.seek(0)
 
         # choose a “folder” in your bucket
