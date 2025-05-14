@@ -1,15 +1,26 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 
-import json
+import json, io
 import time
 import random
 import uuid
 import os
 from difflib import SequenceMatcher
+from google.cloud import storage
+from google.oauth2 import service_account
+
+# Load GCP secrets
+gcp_conf = st.secrets["gcp"]
+sa_info = json.loads(gcp_conf["service_account_info"])
+
+# Build GCS client
+credentials = service_account.Credentials.from_service_account_info(sa_info)
+client      = storage.Client(project=gcp_conf["project_id"], credentials=credentials)
+bucket      = client.bucket(gcp_conf["bucket_name"])
 
 # Paths
-JSON_PATH = "human_data_single_edit_v2.json"
+# JSON_PATH = "human_data_single_edit_v2.json"
 OUTPUT_PATH = "."
 
 # if logs directory doesn't exist, create it
@@ -29,18 +40,69 @@ def load_entries(path):
         entry.setdefault('uid', str(index))
     return entries
 
+@st.cache_data
+def load_entries_from_file(uploaded_file):
+    """
+    Load JSON entries from an uploaded file object and assign a stable UID to each entry.
+    Cached so it's only read and UUIDs generated once per session for the same file.
+    """
+    raw = json.load(uploaded_file)
+    entries_list = list(raw.values()) if isinstance(raw, dict) else raw
+    for index, entry in enumerate(entries_list):
+        entry.setdefault('uid', str(uuid.uuid4())) # Use uuid for more robust unique IDs
+    return entries_list
+
 # Initialize state once
 if 'entries' not in st.session_state:
-    st.session_state.entries = load_entries(JSON_PATH)
-    st.session_state.entries_by_uid = {e['uid']: e for e in st.session_state.entries}
-    st.session_state.uids = list(st.session_state.entries_by_uid.keys())
-    st.session_state.current_uid = st.session_state.uids[0]
+    st.session_state.entries = [] # Initialize as empty
+    st.session_state.entries_by_uid = {}
+    st.session_state.uids = []
+    st.session_state.current_uid = None
+    st.session_state.file_processed = False
+
+# File uploader
+uploaded_file = st.sidebar.file_uploader("Upload JSON file", type="json")
+
+if uploaded_file is not None and not st.session_state.file_processed:
+    try:
+        # To read file as string:
+        # string_data = uploaded_file.read().decode()
+        # st.write(string_data) # Optional: display raw string
+        
+        # To load json:
+        # uploaded_file.seek(0) # Reset file pointer to the beginning
+        
+        st.session_state.entries = load_entries_from_file(uploaded_file)
+        st.session_state.entries_by_uid = {e['uid']: e for e in st.session_state.entries}
+        st.session_state.uids = list(st.session_state.entries_by_uid.keys())
+        if st.session_state.uids:
+            st.session_state.current_uid = st.session_state.uids[0]
+        st.session_state.file_processed = True # Mark file as processed
+        st.sidebar.success("File loaded successfully!")
+        st.rerun() # Rerun to update the UI with loaded data
+    except json.JSONDecodeError:
+        st.sidebar.error("Invalid JSON file. Please upload a valid JSON file.")
+        st.session_state.file_processed = False # Reset on error
+    except Exception as e:
+        st.sidebar.error(f"An error occurred: {e}")
+        st.session_state.file_processed = False # Reset on error
+
+
+# Only proceed if a file has been processed and entries are loaded
+if not st.session_state.get('file_processed') or not st.session_state.get('entries'):
+    st.info("Please upload a JSON file to begin.")
+    st.stop()
 
 # Aliases
 entries = st.session_state.entries
 entries_by_uid = st.session_state.entries_by_uid
 uids = st.session_state.uids
 selection = st.session_state.current_uid
+
+# Handle case where uids might be empty after a bad file or initial load
+if not uids or selection is None:
+    st.error("No entries found or no selection made. Please check the uploaded file.")
+    st.stop()
 
 # Sidebar: select entry
 st.sidebar.header("Select Entry")
@@ -244,10 +306,17 @@ if st.session_state['q1'] and st.session_state['q2']:
         #     }
         entry['review'] = review
         # Save updated entries list
-        saved_path = os.path.join(OUTPUT_PATH, f"{selection}.json")
-        with open(saved_path, 'w') as out_f:
-            json.dump(entry, out_f, indent=4)
-        st.success("Review submitted.")
+        # saved_path = os.path.join(OUTPUT_PATH, f"{selection}.json")
+        # with open(saved_path, 'w') as out_f:
+        #     json.dump(entry, out_f, indent=4)
+        buf = io.StringIO()
+        json.dump(entry, buf, indent=4)
+        buf.seek(0)
+
+        # choose a “folder” in your bucket
+        blob = bucket.blob(f"logs/{selection}.json")
+        blob.upload_from_file(buf, content_type="application/json")
+        st.success("Review submitted and saved to GCS.")
         st.session_state['review_submitted'] = True
 
     # Next-step buttons
