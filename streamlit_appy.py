@@ -23,10 +23,6 @@ bucket      = client.bucket(gcp_conf["bucket_name"])
 # JSON_PATH = "human_data_single_edit_v2.json"
 OUTPUT_PATH = "."
 
-# if logs directory doesn't exist, create it
-if not os.path.exists("logs"):
-    os.makedirs("logs")
-
 @st.cache_data
 def load_entries(path):
     """
@@ -37,7 +33,7 @@ def load_entries(path):
         raw = json.load(f)
     entries = list(raw.values()) if isinstance(raw, dict) else raw
     for index, entry in enumerate(entries):
-        entry.setdefault('uid', str(index))
+        entry.setdefault('number', str(index))
     return entries
 
 @st.cache_data
@@ -49,7 +45,7 @@ def load_entries_from_file(uploaded_file):
     raw = json.load(uploaded_file)
     entries_list = list(raw.values()) if isinstance(raw, dict) else raw
     for index, entry in enumerate(entries_list):
-        entry.setdefault('uid', str(index)) # Use uuid for more robust unique IDs
+        entry.setdefault('number', str(index)) # Use uuid for more robust unique IDs
     return entries_list
 
 # Initialize state once
@@ -149,6 +145,7 @@ st.markdown(
 )
 
 # Header
+st.markdown(f"<div class='bold-large'>Instance Number: {entry['number']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='bold-large'>Entity Name: {entry['entity_id']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='bold-large'>Section Name: {entry.get('section_name','')}</div>", unsafe_allow_html=True)
 
@@ -157,7 +154,7 @@ wiki_url = f"https://en.wikipedia.org/wiki/{entry['entity_id'].replace(' ', '_')
 st.markdown(f"Wikipedia Page: [View on Wikipedia]({wiki_url})")
 
 # Entity Links
-st.markdown("**Entity Links:**")
+st.markdown("**Cited URLs:**")
 if entry.get('url'):
     st.markdown(f"- [{entry['url'][0]}]({entry['url'][0]})")
 
@@ -317,7 +314,8 @@ if st.session_state['q1'] and st.session_state['q2']:
         buf.seek(0)
 
         # choose a “folder” in your bucket
-        blob = bucket.blob(f"test/{selection}.json")
+        
+        blob = bucket.blob(f"test/{entry.get("user", "")}_{selection}.json")
         blob.upload_from_file(buf, content_type="application/json")
         st.success("Review submitted and saved to GCS.")
         st.session_state['review_submitted'] = True
