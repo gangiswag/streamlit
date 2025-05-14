@@ -33,7 +33,7 @@ def load_entries(path):
         raw = json.load(f)
     entries = list(raw.values()) if isinstance(raw, dict) else raw
     for index, entry in enumerate(entries):
-        entry.setdefault('number', str(index))
+        entry.setdefault('number', str(index+1))
     return entries
 
 @st.cache_data
@@ -45,7 +45,7 @@ def load_entries_from_file(uploaded_file):
     raw = json.load(uploaded_file)
     entries_list = list(raw.values()) if isinstance(raw, dict) else raw
     for index, entry in enumerate(entries_list):
-        entry.setdefault('number', str(index)) # Use uuid for more robust unique IDs
+        entry.setdefault('number', str(index+1)) # Use uuid for more robust unique IDs
     return entries_list
 
 # Initialize state once
