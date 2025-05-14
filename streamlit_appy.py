@@ -49,7 +49,7 @@ def load_entries_from_file(uploaded_file):
     raw = json.load(uploaded_file)
     entries_list = list(raw.values()) if isinstance(raw, dict) else raw
     for index, entry in enumerate(entries_list):
-        entry.setdefault('uid', str(uuid.uuid4())) # Use uuid for more robust unique IDs
+        entry.setdefault('uid', str(index)) # Use uuid for more robust unique IDs
     return entries_list
 
 # Initialize state once
