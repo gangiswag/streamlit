@@ -194,7 +194,7 @@ st.session_state.setdefault('q3', None)
 
 # Questions text
 q_texts = entry.get('questions', [
-    "Question 1: Provided above is a suggested edit for the Wikipedia article. Please identify any errors with the suggested edit (select all that apply)",
+    "Question 1: Provided above is a suggested edit for the Wikipedia article. Please identify errors (if any) with the suggested edit (select all that apply)",
     "Question 2: Would you (1) accept, (2) accept w/ revision, and (3) reject the suggested edit above?",
     "Question 3: Was the human edit placed in the correct section of the Wikipedia page?"
 ])
@@ -203,6 +203,7 @@ q_texts = entry.get('questions', [
 # Q1 as checkbox
 q1_key_prefix = f"q1_{selection[:8]}"  # change prefix based on entry
 q1_options = {
+    "none": "None: Edit does not have any errors/issues",
     "style": "Stylistic/clarity: Phrasing redundant or tone is too informal",
     "minor_fix": "Minor factual fix: Small date/number correction needed",
     "formatting": "Wikipedia Formatting: Text in the human edit is not formatted properly",
