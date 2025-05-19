@@ -316,7 +316,7 @@ if st.session_state['q1'] and st.session_state['q2']:
 
         # choose a “folder” in your bucket
         
-        blob = bucket.blob(f"test/{entry.get("user", "")}_{selection}.json")
+        blob = bucket.blob(f"final/{entry.get("user", "")}_{selection}.json")
         blob.upload_from_file(buf, content_type="application/json")
         st.success("Review submitted and saved to GCS.")
         st.session_state['review_submitted'] = True
